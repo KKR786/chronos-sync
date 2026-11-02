@@ -1,0 +1,6 @@
+{
+  "name": "Chronos - Intelligent Task Scheduler & Workflow Engine",
+  "description": "Production-ready, Clean Architecture Task Scheduler featuring DAG dependency chains, BullMQ auto-rescheduling with dynamic buffers, Pomodoro focus telemetry, and multi-view execution.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

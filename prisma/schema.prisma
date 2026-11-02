@@ -1,0 +1,268 @@
+// ============================================================================
+// CHRONOS TASK SCHEDULER & WORKFLOW ENGINE - PRISMA SCHEMA
+// Database: PostgreSQL with Optimized Indexes & Foreign Key Constraints
+// Architecture: Clean Architecture / Modular Monolith
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// ENUMS
+// ----------------------------------------------------------------------------
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  IN_REVIEW
+  COMPLETED
+  ARCHIVED
+}
+
+enum Priority {
+  URGENT_P0
+  HIGH_P1
+  MEDIUM_P2
+  LOW_P3
+}
+
+enum EnergyLevel {
+  LOW_ENERGY
+  MEDIUM_FOCUS
+  HIGH_FOCUS
+  DEEP_WORK
+}
+
+enum RecurringFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM_CRON
+  ORDINAL_DAY     // e.g. "Every 3rd Tuesday"
+  BUSINESS_DAYS   // e.g. "Every 10 business days"
+}
+
+enum CalendarProvider {
+  GOOGLE_CALENDAR
+  MICROSOFT_OUTLOOK
+  APPLE_ICAL
+}
+
+enum SyncStatus {
+  IN_SYNC
+  PENDING_PUSH
+  PENDING_PULL
+  CONFLICT
+  FAILED
+}
+
+enum PomodoroPhase {
+  FOCUS_WORK
+  SHORT_BREAK
+  LONG_BREAK
+}
+
+// ----------------------------------------------------------------------------
+// DOMAIN MODELS
+// ----------------------------------------------------------------------------
+
+model User {
+  id              String      @id @default(uuid()) @db.Uuid
+  email           String      @unique @db.VarChar(255)
+  passwordHash    String?     @db.VarChar(255) // Optional when authenticated via Supabase OAuth
+  supabaseUid     String?     @unique @db.VarChar(128)
+  fullName        String      @db.VarChar(150)
+  avatarUrl       String?     @db.VarChar(512)
+  timezone        String      @default("UTC") @db.VarChar(64)
+  defaultEnergy   EnergyLevel @default(MEDIUM_FOCUS)
+  bufferPreferenceInt Int     @default(15) // Default buffer minutes between high priority tasks
+  
+  // Relations
+  tasks             Task[]
+  recurringRules    RecurringRule[]
+  pomodoroSessions  PomodoroSession[]
+  timeAuditLogs     TimeAuditLog[]
+  calendarSyncLinks CalendarSyncLink[]
+  historicalMetrics HistoricalTaskMetric[]
+
+  createdAt       DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @db.Timestamptz(6)
+
+  @@index([email])
+  @@index([supabaseUid])
+  @@map("users")
+}
+
+model Task {
+  id                String       @id @default(uuid()) @db.Uuid
+  userId            String       @db.Uuid
+  title             String       @db.VarChar(255)
+  description       String?      @db.Text
+  status            TaskStatus   @default(TODO)
+  priority          Priority     @default(MEDIUM_P2)
+  energyLevel       EnergyLevel  @default(MEDIUM_FOCUS)
+  requiredTools     String[]     @default([])
+  
+  // Time Scheduling & Buffers
+  scheduledStart    DateTime?    @db.Timestamptz(6)
+  scheduledEnd      DateTime?    @db.Timestamptz(6)
+  estimatedMinutes  Int          @default(30)
+  actualMinutes     Int          @default(0)
+  bufferMinutes     Int          @default(10) // Mandatory buffer following this task
+  deadline          DateTime?    @db.Timestamptz(6)
+  
+  // DAG Dependency State
+  isBlocked         Boolean      @default(false)
+  blockedReason     String?      @db.VarChar(255)
+
+  // Recurring link (optional)
+  recurringRuleId   String?      @db.Uuid
+  recurringRule     RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+
+  // Offline-First & Optimistic Concurrency Control
+  version           Int          @default(1)
+  clientUpdatedAt   DateTime?    @db.Timestamptz(6)
+
+  // Relations
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // DAG Dependencies (Self-referential Many-to-Many via Join Model)
+  dependencies      TaskDependency[] @relation("SuccessorTasks")   // Prerequisite tasks that this task depends on
+  dependents        TaskDependency[] @relation("PredecessorTasks") // Tasks that are blocked until this task completes
+
+  // Focus & Telemetry
+  pomodoroSessions  PomodoroSession[]
+  timeAuditLogs     TimeAuditLog[]
+  calendarLinks     CalendarSyncLink[]
+
+  createdAt         DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
+
+  // Performance Indexes for high-throughput query pipelines
+  @@index([userId, status, priority])
+  @@index([userId, scheduledStart, scheduledEnd])
+  @@index([userId, energyLevel])
+  @@index([userId, isBlocked])
+  @@index([version])
+  @@map("tasks")
+}
+
+model TaskDependency {
+  id             String    @id @default(uuid()) @db.Uuid
+  predecessorId  String    @db.Uuid // The prerequisite task that MUST finish first
+  successorId    String    @db.Uuid // The dependent task that is blocked
+
+  predecessor    Task      @relation("PredecessorTasks", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor      Task      @relation("SuccessorTasks", fields: [successorId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Ensure unique edge in Directed Acyclic Graph (DAG)
+  @@unique([predecessorId, successorId], name: "unique_dag_edge")
+  @@index([predecessorId])
+  @@index([successorId])
+  @@map("task_dependencies")
+}
+
+model RecurringRule {
+  id               String             @id @default(uuid()) @db.Uuid
+  userId           String             @db.Uuid
+  frequency        RecurringFrequency @default(WEEKLY)
+  cronExpression   String?            @db.VarChar(128) // Standard cron: "0 9 * * 1-5"
+  complexPattern   String?            @db.VarChar(128) // e.g. "ORDINAL:3:TUESDAY" or "BUSINESS_DAYS:10"
+  intervalDays     Int?               @default(1)
+  daysOfWeek       Int[]              @default([])     // 0=Sunday, 1=Monday...
+  monthDay         Int?                                // e.g. 15th of each month
+  nextExecutionAt  DateTime           @db.Timestamptz(6)
+  lastExecutedAt   DateTime?          @db.Timestamptz(6)
+  isActive         Boolean            @default(true)
+
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks            Task[]
+
+  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+
+  @@index([userId, isActive, nextExecutionAt])
+  @@map("recurring_rules")
+}
+
+model PomodoroSession {
+  id                 String        @id @default(uuid()) @db.Uuid
+  taskId             String        @db.Uuid
+  userId             String        @db.Uuid
+  phase              PomodoroPhase @default(FOCUS_WORK)
+  targetDurationMin  Int           @default(25)
+  elapsedSeconds     Int           @default(0)
+  completed          Boolean       @default(false)
+  interruptionsCount Int           @default(0)
+  startedAt          DateTime      @default(now()) @db.Timestamptz(6)
+  endedAt            DateTime?     @db.Timestamptz(6)
+
+  task               Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, taskId])
+  @@index([startedAt])
+  @@map("pomodoro_sessions")
+}
+
+model TimeAuditLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  taskId          String    @db.Uuid
+  userId          String    @db.Uuid
+  startedAt       DateTime  @db.Timestamptz(6)
+  stoppedAt       DateTime? @db.Timestamptz(6)
+  durationSeconds Int       @default(0)
+  deviceType      String?   @db.VarChar(64)
+  notes           String?   @db.Text
+
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, taskId])
+  @@index([startedAt, stoppedAt])
+  @@map("time_audit_logs")
+}
+
+model CalendarSyncLink {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @db.Uuid
+  taskId          String           @db.Uuid
+  provider        CalendarProvider @default(GOOGLE_CALENDAR)
+  externalEventId String           @db.VarChar(255)
+  syncStatus      SyncStatus       @default(IN_SYNC)
+  lastSyncedAt    DateTime         @default(now()) @db.Timestamptz(6)
+  etag            String?          @db.VarChar(128)
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task            Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalEventId])
+  @@index([userId, taskId])
+  @@map("calendar_sync_links")
+}
+
+model HistoricalTaskMetric {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @db.Uuid
+  taskCategory       String    @default("GENERAL") @db.VarChar(64)
+  estimatedMinutes   Int
+  actualMinutes      Int
+  variancePercentage Float
+  isUnrealistic      Boolean   @default(false)
+  loggedAt           DateTime  @default(now()) @db.Timestamptz(6)
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, taskCategory])
+  @@index([loggedAt])
+  @@map("historical_task_metrics")
+}
