@@ -16,7 +16,6 @@ import { AutoReschedulerView } from './components/AutoReschedulerView.tsx';
 import { PredictiveAuditorView } from './components/PredictiveAuditorView.tsx';
 import { FocusChamberView } from './components/FocusChamberView.tsx';
 import { RecurringEngineView } from './components/RecurringEngineView.tsx';
-import { ArchitectureExplorerView } from './components/ArchitectureExplorerView.tsx';
 import { QuickCaptureModal } from './components/QuickCaptureModal.tsx';
 import { TaskModal } from './components/TaskModal.tsx';
 import { Tooltip } from './components/Tooltip.tsx';
@@ -31,7 +30,6 @@ import {
   LogOut,
   RefreshCw,
   Server,
-  Code2,
   CheckCircle2,
   Wifi,
   WifiOff,
@@ -52,8 +50,7 @@ export type TabId =
   | 'AUTORESCHEDULE'
   | 'AUDIT'
   | 'FOCUS'
-  | 'RECURRING'
-  | 'ARCHITECTURE';
+  | 'RECURRING';
 
 export default function App() {
   // Session State (First page is Login if null)
@@ -307,7 +304,6 @@ export default function App() {
     { id: 'AUDIT', label: 'Predictive Auditor', category: 'Automation & Logic', icon: TrendingUp, desc: 'Historical completion metrics vs estimates' },
     { id: 'FOCUS', label: 'Focus & Pomodoro', category: 'Focus & Tools', icon: Cpu, desc: 'Hardware-calibrated 25/5m timer & audit stopwatch' },
     { id: 'RECURRING', label: 'Recurring Rules', category: 'Focus & Tools', icon: RefreshCw, desc: 'Complex intervals ("Every 3rd Tuesday", business days)' },
-    { id: 'ARCHITECTURE', label: 'Clean Architecture', category: 'Focus & Tools', icon: Code2, desc: 'Directory layout, schema.prisma, and TypeScript domain code' },
   ];
 
   // FIRST PAGE AUTHENTICATION CHECK
@@ -335,9 +331,6 @@ export default function App() {
                   Active
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-mono hidden md:block">
-                Modular Monolith &bull; Express + Prisma + BullMQ
-              </p>
             </div>
           </div>
 
@@ -452,11 +445,11 @@ export default function App() {
               className={`px-2.5 py-1.5 sm:py-2 rounded-xl text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border ${
                 isOfflineMode
                   ? 'bg-amber-950/90 border-amber-600 text-amber-200'
-                  : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:text-slate-200'
+                  : 'bg-emerald-950/90 border border-emerald-700/80 text-emerald-400 hover:text-slate-200'
               }`}
               title="Toggle offline state simulation to test optimistic concurrency locking & conflict resolution"
             >
-              {isOfflineMode ? <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0" /> : <Wifi className="w-3.5 h-3.5 shrink-0" />}
+              {isOfflineMode ? <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0" /> : <Wifi className="w-3.5 h-3.5 shrink-0 text-emerald-400 animate-pulse" />}
               <span className="hidden sm:inline">{isOfflineMode ? 'Offline Mode' : 'Online'}</span>
               {offlinePendingQueue.length > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-bold">
@@ -627,8 +620,6 @@ export default function App() {
         )}
 
         {activeTab === 'RECURRING' && <RecurringEngineView />}
-
-        {activeTab === 'ARCHITECTURE' && <ArchitectureExplorerView />}
       </main>
 
       {/* Omnipresent Quick Capture Modal (NLP Fast Capture) */}

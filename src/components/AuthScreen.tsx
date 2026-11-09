@@ -143,10 +143,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
 
       {/* Brand Header */}
       <div className="w-full max-w-md text-center mb-8 relative z-10">
-        <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-indigo-950/70 border border-indigo-500/30 text-indigo-300 text-xs font-semibold tracking-wider uppercase mb-4 shadow-inner">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-          Clean Architecture &bull; Modular Monolith
-        </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
           CHRONOS SYNC
         </h1>
@@ -254,7 +250,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="romman.abit@gmail.com"
+                    placeholder="kkr@gmail.com"
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                   />
                 </div>
@@ -304,7 +300,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Romman Abit (Principal Architect)"
+                placeholder="Romman (Principal Architect)"
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
@@ -319,7 +315,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="romman.abit@gmail.com"
+                placeholder="kkr@gmail.com"
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
@@ -334,7 +330,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Architect2026!"
+                placeholder="********"
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>

@@ -60,7 +60,7 @@ const __dirname = path.dirname(__filename);
 
 async function bootstrapServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = Number(process.env.PORT) || 5000;
 
   app.use(express.json());
 
